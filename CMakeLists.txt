@@ -46,35 +46,31 @@ set(HEADERS
     include/leafodbc/common.h
 )
 
-# Download nlohmann/json if not present
+# Download nlohmann/json header-only library
 include(FetchContent)
 FetchContent_Declare(
     json
     GIT_REPOSITORY https://github.com/nlohmann/json.git
     GIT_TAG v3.11.2
+    GIT_SHALLOW TRUE
 )
-FetchContent_MakeAvailable(json)
-
-# Get json include directory
-get_target_property(JSON_INCLUDE_DIR nlohmann_json::nlohmann_json INTERFACE_INCLUDE_DIRECTORIES)
-if(NOT JSON_INCLUDE_DIR)
-    # Fallback: use the source directory from FetchContent
-    get_property(JSON_SOURCE_DIR TARGET nlohmann_json::nlohmann_json PROPERTY SOURCE_DIR)
-    if(JSON_SOURCE_DIR)
-        set(JSON_INCLUDE_DIR "${JSON_SOURCE_DIR}/include")
-    else()
-        # Last resort: try to find it in the build directory
-        set(JSON_INCLUDE_DIR "${CMAKE_BINARY_DIR}/_deps/json-src/include")
-    endif()
+FetchContent_GetProperties(json)
+if(NOT json_POPULATED)
+    FetchContent_Populate(json)
+    set(JSON_INCLUDE_DIR "${json_SOURCE_DIR}/include" CACHE INTERNAL "")
 endif()
 
 # Shared library
 add_library(leafodbc SHARED ${SOURCES} ${HEADERS})
+target_link_directories(leafodbc
+    PRIVATE
+    ${UNIXODBC_LIBRARY_DIRS}
+    ${CURL_LIBRARY_DIRS}
+)
 target_link_libraries(leafodbc
     PRIVATE
     ${UNIXODBC_LIBRARIES}
     ${CURL_LIBRARIES}
-    nlohmann_json::nlohmann_json
 )
 
 target_include_directories(leafodbc
