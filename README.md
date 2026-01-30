@@ -9,7 +9,7 @@ ODBC driver for accessing the Leaf PointLake API, enabling tools like QGIS, GDAL
 - ✅ **Metadata**: Exposes tables and columns for GDAL/OGR
 - ✅ **Geometry**: WKT geometry support through `GEOMETRY_COLUMNS`
 - ✅ **Compatible**: Works with unixODBC (macOS and Linux)
-- ✅ **QGIS**: Full integration with QGIS via OGR
+- ✅ **QGIS**: Full integration with QGIS via OGR/GDAL
 
 ## Architecture
 
@@ -20,68 +20,228 @@ ODBC driver for accessing the Leaf PointLake API, enabling tools like QGIS, GDAL
   - libcurl (HTTP client)
   - nlohmann/json (JSON parsing)
 
-## Quick Build
+## Installation
+
+### Option 1: Download Pre-built Release (Recommended)
+
+1. **Download the release** for your platform:
+   - Go to [Releases](https://github.com/lhzsantana/leaf-odbc-driver/releases)
+   - Download `leafodbc-linux.tar.gz` (Linux) or `leafodbc-macos.tar.gz` (macOS)
+
+2. **Extract the archive**:
+   ```bash
+   tar -xzf leafodbc-macos.tar.gz
+   cd leafodbc-macos
+   ```
+
+3. **Install the driver library**:
+   
+   **macOS:**
+   ```bash
+   # Copy to a system or user library directory
+   sudo cp libleafodbc.dylib /usr/local/lib/
+   # Or user-specific:
+   mkdir -p ~/lib
+   cp libleafodbc.dylib ~/lib/
+   ```
+   
+   **Linux:**
+   ```bash
+   # Copy to system library directory
+   sudo cp libleafodbc.so /usr/local/lib/
+   # Or user-specific:
+   mkdir -p ~/lib
+   cp libleafodbc.so ~/lib/
+   ```
+
+4. **Register the driver** with unixODBC (see [ODBC Setup](#odbc-setup) below)
+
+### Option 2: Build from Source
 
 ```bash
+git clone https://github.com/lhzsantana/leaf-odbc-driver.git
+cd leaf-odbc-driver
 mkdir build && cd build
-cmake ..
+cmake .. -DCMAKE_BUILD_TYPE=Release
 make
 ```
 
 The driver will be generated as `build/lib/libleafodbc.so` (Linux) or `build/lib/libleafodbc.dylib` (macOS).
 
-## Quick Setup
+## ODBC Setup
 
-1. **Register driver** in `odbcinst.ini`:
-   ```ini
-   [LeafODBC]
-   Description=Leaf ODBC Driver
-   Driver=/absolute/path/to/libleafodbc.so
-   ```
+### Step 1: Register the Driver
 
-2. **Create DSN** in `odbc.ini`:
-   ```ini
-   [LeafPointLake]
-   Driver=LeafODBC
-   EndpointBase=https://api.withleaf.io
-   Username=YOUR_USER
-   Password=YOUR_PASSWORD
-   SqlEngine=SPARK_SQL
-   ```
+Edit `odbcinst.ini` (usually `/etc/odbcinst.ini`, `/usr/local/etc/odbcinst.ini`, or `~/.odbcinst.ini`):
 
-3. **Test**:
-   ```bash
-   isql -v LeafPointLake
-   ```
+**macOS:**
+```ini
+[LeafODBC]
+Description=Leaf ODBC Driver for PointLake API
+Driver=/usr/local/lib/libleafodbc.dylib
+# Or if installed in user directory:
+# Driver=/Users/your_username/lib/libleafodbc.dylib
+```
 
-## Documentation
+**Linux:**
+```ini
+[LeafODBC]
+Description=Leaf ODBC Driver for PointLake API
+Driver=/usr/local/lib/libleafodbc.so
+# Or if installed in user directory:
+# Driver=/home/your_username/lib/libleafodbc.so
+```
 
-- [ODBC Setup](docs/ODBC_SETUP.md) - Complete unixODBC setup
-- [QGIS Setup](docs/QGIS_SETUP.md) - How to use with QGIS
+**Verify registration:**
+```bash
+odbcinst -q -d
+# Should show: LeafODBC
+```
 
-## Basic Usage
+### Step 2: Create Data Source (DSN)
 
-### Via isql
+Edit `odbc.ini` (usually `~/.odbc.ini` or `/etc/odbc.ini`):
+
+```ini
+[LeafPointLake]
+Driver=LeafODBC
+EndpointBase=https://api.withleaf.io
+SqlEngine=SPARK_SQL
+Username=YOUR_USERNAME_HERE
+Password=YOUR_PASSWORD_HERE
+RememberMe=true
+TimeoutSec=60
+VerifyTLS=true
+UserAgent=LeafODBC/0.1
+```
+
+**Verify DSN:**
+```bash
+odbcinst -q -s
+# Should show: LeafPointLake
+```
+
+### Step 3: Test Connection
 
 ```bash
 isql -v LeafPointLake
-SQL> SELECT geometry, timestamp FROM leaf.pointlake.points LIMIT 10;
+# If successful, you'll see:
+# +---------------------------------------+
+# | Connected!                            |
+# |                                       |
+# | sql-statement                         |
+# | help [tablename]                      |
+# | quit                                  |
+# +---------------------------------------+
+# SQL>
 ```
 
-### Via ogrinfo (GDAL)
+## Using with QGIS
+
+### Prerequisites
+
+1. **QGIS installed** (version 3.x or later recommended)
+2. **GDAL/OGR with ODBC support** (usually included with QGIS)
+3. **LeafODBC driver installed and registered** (see [Installation](#installation) above)
+
+### Verify ODBC Support in GDAL
 
 ```bash
-ogrinfo "ODBC:LeafPointLake" -al
-ogrinfo "ODBC:LeafPointLake" -sql "SELECT * FROM leaf.pointlake.points LIMIT 100"
+ogrinfo --formats | grep -i odbc
+# Should show: ODBC -vector- (read/write)
 ```
 
-### Via QGIS
+If ODBC doesn't appear, you may need to install GDAL with ODBC support:
+- **macOS**: `brew install gdal`
+- **Linux**: `sudo apt-get install gdal-bin` (Ubuntu/Debian)
 
-1. **Layer → Data Source Manager → Vector → ODBC**
-2. Connection string: `ODBC:LeafPointLake`
-3. Add layer `points`
+### Method 1: Add Layer via Data Source Manager (Recommended)
+
+1. **Open QGIS**
+
+2. **Open Data Source Manager**:
+   - Go to **Layer → Data Source Manager** (or press `Ctrl+L` / `Cmd+L`)
+
+3. **Select Vector Layer**:
+   - Click the **Vector** tab
+   - Under **Source Type**, select **Database → ODBC**
+
+4. **Configure Connection**:
+   - **Connection string**: `ODBC:LeafPointLake`
+     - Or with explicit credentials: `ODBC:Username=your_user;Password=your_pass@LeafPointLake`
+   - **SQL** (optional): Add a query to filter data
+     ```
+     SELECT geometry, timestamp, operationType 
+     FROM leaf.pointlake.points 
+     LIMIT 1000
+     ```
+
+5. **Add Layer**:
+   - Click **Add**
+   - The layer should appear in your map
+
+### Method 2: Add Layer via Browser Panel
+
+1. In the **Browser** panel (usually on the left), expand **ODBC**
+2. Expand your DSN (`LeafPointLake`)
+3. Expand **leaf → pointlake**
+4. Drag the **points** table to the map canvas
+
+### Method 3: Add Layer via Python Console
+
+Open QGIS Python Console (`Plugins → Python Console`) and run:
+
+```python
+from qgis.core import QgsVectorLayer, QgsProject
+
+# Simple connection via DSN
+uri = "ODBC:LeafPointLake"
+layer = QgsVectorLayer(uri, "Leaf Points", "ogr")
+
+# Or with SQL query
+uri = "ODBC:LeafPointLake|layername=points|sql=SELECT geometry, timestamp FROM leaf.pointlake.points LIMIT 100"
+layer = QgsVectorLayer(uri, "Leaf Points Filtered", "ogr")
+
+if layer.isValid():
+    # Set CRS (WGS84)
+    layer.setCrs(QgsCoordinateReferenceSystem("EPSG:4326"))
+    
+    # Add to project
+    QgsProject.instance().addMapLayer(layer)
+    
+    # Zoom to layer
+    iface.mapCanvas().setExtent(layer.extent())
+    iface.mapCanvas().refresh()
+    
+    print(f"✓ Layer added: {layer.featureCount()} features")
+else:
+    print(f"✗ Error: {layer.error().message()}")
+```
+
+### Configure Geometry Column
+
+QGIS should automatically detect the `geometry` column through the `GEOMETRY_COLUMNS` table. If it doesn't:
+
+1. Right-click the layer → **Properties**
+2. Go to **Source** tab
+3. Under **Geometry column**, select `geometry`
+4. Under **Geometry type**, choose:
+   - **Point** (for POINT geometries)
+   - **LineString** (for LINESTRING)
+   - **Polygon** (for POLYGON)
+   - **Auto** (let QGIS detect automatically)
+
+### Set Coordinate Reference System (CRS)
+
+The driver assumes SRID 4326 (WGS84) by default:
+
+1. Right-click layer → **Properties → Source**
+2. Under **CRS**, select **EPSG:4326** (WGS84) or your appropriate CRS
+3. Click **Apply**
 
 ## Connection Parameters
+
+All parameters can be set in the DSN (`odbc.ini`) or via connection string:
 
 - `EndpointBase`: API base URL (default: `https://api.withleaf.io`)
 - `Username`: Leaf API username
@@ -89,7 +249,7 @@ ogrinfo "ODBC:LeafPointLake" -sql "SELECT * FROM leaf.pointlake.points LIMIT 100
 - `RememberMe`: `true`/`false` (default: `true`)
 - `SqlEngine`: SQL engine (default: `SPARK_SQL`)
 - `TimeoutSec`: Timeout in seconds (default: `60`)
-- `VerifyTLS`: Verify TLS (default: `true`)
+- `VerifyTLS`: Verify TLS certificates (default: `true`)
 - `UserAgent`: HTTP user agent (default: `LeafODBC/0.1`)
 
 ## Exposed Tables
@@ -97,7 +257,7 @@ ogrinfo "ODBC:LeafPointLake" -sql "SELECT * FROM leaf.pointlake.points LIMIT 100
 ### `leaf.pointlake.points`
 
 Main table with point data. Known columns:
-- `geometry` (LONGVARCHAR, WKT)
+- `geometry` (LONGVARCHAR, WKT format)
 - `timestamp` (VARCHAR)
 - `operationType` (VARCHAR)
 - `apiOwnerUsername` (VARCHAR)
@@ -115,22 +275,148 @@ Virtual table of spatial metadata for GDAL/OGR:
 - `GEOMETRY_TYPE`: 0 (generic, can be inferred from WKT)
 - `SRID`: 4326 (default WGS84)
 
+## Usage Examples
+
+### Via isql (Command Line)
+
+```bash
+isql -v LeafPointLake
+SQL> SELECT geometry, timestamp FROM leaf.pointlake.points LIMIT 10;
+SQL> SELECT * FROM GEOMETRY_COLUMNS;
+SQL> quit
+```
+
+### Via ogrinfo (GDAL)
+
+```bash
+# List all layers
+ogrinfo "ODBC:LeafPointLake" -al
+
+# Execute SQL query
+ogrinfo "ODBC:LeafPointLake" -sql "SELECT geometry, timestamp FROM leaf.pointlake.points LIMIT 100"
+
+# Get layer info
+ogrinfo "ODBC:LeafPointLake" points -so
+```
+
+### Via QGIS SQL Query
+
+Use **Layer → Add Layer → Add/Edit Virtual Layer**:
+
+```sql
+SELECT 
+    geometry,
+    timestamp,
+    operationType,
+    crop
+FROM leaf.pointlake.points
+WHERE timestamp >= '2024-01-01'
+LIMIT 1000
+```
+
+## Troubleshooting
+
+### Driver Not Found
+
+**Error**: `Driver not found` or `Could not load driver`
+
+**Solutions**:
+1. Verify driver is registered: `odbcinst -q -d | grep LeafODBC`
+2. Check driver path in `odbcinst.ini` is correct and absolute
+3. Verify file exists and has read permissions: `ls -l /path/to/libleafodbc.*`
+4. Check library dependencies: `ldd libleafodbc.so` (Linux) or `otool -L libleafodbc.dylib` (macOS)
+
+### Connection Failed in QGIS
+
+**Error**: `Layer is not valid` or connection fails
+
+**Solutions**:
+1. Test connection with `isql` first: `isql -v LeafPointLake`
+2. Verify DSN exists: `odbcinst -q -s | grep LeafPointLake`
+3. Check credentials in `odbc.ini`
+4. Enable debug logs: `export LEAFODBC_LOG=1` before starting QGIS
+5. Check QGIS logs: **View → Panels → Log Messages**
+
+### No Geometry Column Found
+
+**Error**: QGIS doesn't detect geometry column
+
+**Solutions**:
+1. Verify `GEOMETRY_COLUMNS` table is accessible:
+   ```bash
+   isql -v LeafPointLake -b
+   SQL> SELECT * FROM GEOMETRY_COLUMNS;
+   ```
+2. Manually configure geometry column in layer properties
+3. Ensure geometry data is in WKT format
+
+### Authentication Failed
+
+**Error**: `Authentication failed` or `28000` error
+
+**Solutions**:
+1. Verify `Username` and `Password` in `odbc.ini`
+2. Test authentication with `isql`
+3. Check `EndpointBase` is correct
+4. Use connection string with explicit credentials in QGIS
+
+### Performance Issues
+
+**Problem**: QGIS is slow or hangs when loading data
+
+**Solutions**:
+1. Always use `LIMIT` in queries (e.g., `LIMIT 1000`)
+2. Use `TABLESAMPLE` for large datasets:
+   ```sql
+   SELECT * FROM leaf.pointlake.points TABLESAMPLE (1 PERCENT) LIMIT 5000
+   ```
+3. Filter data with WHERE clauses before loading
+4. Consider creating virtual layers with pre-filtered queries
+
+### ODBC Not Available in QGIS
+
+**Problem**: ODBC option doesn't appear in QGIS
+
+**Solutions**:
+1. Verify GDAL has ODBC support: `ogrinfo --formats | grep ODBC`
+2. Install GDAL with ODBC support:
+   - macOS: `brew install gdal`
+   - Linux: `sudo apt-get install gdal-bin libgdal-dev`
+3. Restart QGIS after installing GDAL
+
 ## Debug Logging
 
-Enable detailed logs:
+Enable detailed logs for troubleshooting:
 
 ```bash
 export LEAFODBC_LOG=1
+# Then run your application (isql, ogrinfo, or QGIS)
 isql -v LeafPointLake
 ```
 
+Logs will appear in `stderr` and show:
+- Authentication attempts
+- Query execution
+- HTTP status codes
+- Error messages
+
+**Note**: Passwords and tokens are never logged for security.
+
 ## Limitations (MVP)
 
-- ✅ SELECT only (read-only)
+- ✅ SELECT only (read-only) - INSERT, UPDATE, DELETE, DROP, CREATE are blocked
 - ✅ Basic data type support
-- ✅ Schema inference from samples
+- ✅ Schema inference from sample rows
 - ✅ Fixed SRID at 4326 (configurable manually in QGIS)
 - ⚠️ Windows not supported yet (macOS/Linux only)
+- ⚠️ No connection pooling
+- ⚠️ No prepared statement caching
+
+## Documentation
+
+- **[ODBC Setup Guide](docs/ODBC_SETUP.md)** - Detailed unixODBC configuration
+- **[QGIS Setup Guide](docs/QGIS_SETUP.md)** - Complete QGIS integration guide
+- **[Build Guide](BUILD.md)** - Compilation instructions
 
 ## Development
 
@@ -160,10 +446,13 @@ leaf-odbc-driver/
     └── QGIS_SETUP.md
 ```
 
-### Build with Tests
+### Build from Source
 
 ```bash
-cmake -DBUILD_TESTS=ON ..
+git clone https://github.com/lhzsantana/leaf-odbc-driver.git
+cd leaf-odbc-driver
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
 make
 ```
 
@@ -179,5 +468,7 @@ make
 
 For issues and questions:
 1. Check logs with `LEAFODBC_LOG=1`
-2. Test connection with `isql`
-3. Check unixODBC configuration with `odbcinst -j`
+2. Test connection with `isql -v LeafPointLake`
+3. Verify unixODBC configuration: `odbcinst -j`
+4. Check [Troubleshooting](#troubleshooting) section above
+5. Open an issue on [GitHub](https://github.com/lhzsantana/leaf-odbc-driver/issues)
