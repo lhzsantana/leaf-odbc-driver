@@ -1,0 +1,17 @@
+# Example odbcinst.ini configuration
+# Copy this file to /etc/odbcinst.ini or /usr/local/etc/odbcinst.ini
+# (or ~/.odbcinst.ini if using user-specific configuration)
+# 
+# IMPORTANT: Use ABSOLUTE path for the driver
+
+[LeafODBC]
+Description=Leaf ODBC Driver for PointLake API
+Driver=/absolute/path/to/build/lib/libleafodbc.so
+# On macOS, use:
+# Driver=/absolute/path/to/build/lib/libleafodbc.dylib
+
+# macOS Example:
+# Driver=/Users/your_user/leaf-odbc-driver/build/lib/libleafodbc.dylib
+
+# Linux Example:
+# Driver=/home/your_user/leaf-odbc-driver/build/lib/libleafodbc.so

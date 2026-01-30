@@ -1,0 +1,23 @@
+# Example odbc.ini configuration
+# Copy this file to ~/.odbc.ini or /etc/odbc.ini
+# 
+# IMPORTANT: Replace YOUR_USERNAME and YOUR_PASSWORD with your actual credentials
+
+[LeafPointLake]
+Driver=LeafODBC
+EndpointBase=https://api.withleaf.io
+SqlEngine=SPARK_SQL
+Username=YOUR_USERNAME_HERE
+Password=YOUR_PASSWORD_HERE
+RememberMe=true
+TimeoutSec=60
+VerifyTLS=true
+UserAgent=LeafODBC/0.1
+
+# Optional parameters:
+# - EndpointBase: API base URL (default: https://api.withleaf.io)
+# - SqlEngine: SQL engine to use (default: SPARK_SQL)
+# - RememberMe: true/false (default: true)
+# - TimeoutSec: Timeout in seconds (default: 60)
+# - VerifyTLS: Verify TLS certificates (default: true)
+# - UserAgent: HTTP user agent (default: LeafODBC/0.1)

@@ -1,0 +1,148 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v0.1.0)'
+        required: true
+        type: string
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_name: libleafodbc.so
+            platform: linux
+          - os: macos-latest
+            artifact_name: libleafodbc.dylib
+            platform: macos
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            unixodbc-dev \
+            libcurl4-openssl-dev \
+            cmake \
+            build-essential
+      
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install unixodbc curl cmake
+      
+      - name: Configure CMake
+        run: |
+          mkdir -p build
+          cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release
+      
+      - name: Build
+        run: |
+          cd build
+          make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
+      
+      - name: Verify build output
+        run: |
+          cd build/lib
+          ls -lh libleafodbc.*
+          file libleafodbc.*
+      
+      - name: Create release archive
+        run: |
+          mkdir -p release/leafodbc-${{ matrix.platform }}
+          cp build/lib/libleafodbc.* release/leafodbc-${{ matrix.platform }}/
+          cp README.md BUILD.md release/leafodbc-${{ matrix.platform }}/
+          cp -r docs release/leafodbc-${{ matrix.platform }}/
+          cp -r examples release/leafodbc-${{ matrix.platform }}/
+          
+          cd release
+          if [ "${{ matrix.platform }}" == "linux" ]; then
+            tar czf leafodbc-${{ matrix.platform }}.tar.gz leafodbc-${{ matrix.platform }}
+          else
+            tar czf leafodbc-${{ matrix.platform }}.tar.gz leafodbc-${{ matrix.platform }}
+          fi
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: leafodbc-${{ matrix.platform }}
+          path: |
+            release/leafodbc-${{ matrix.platform }}.tar.gz
+            build/lib/libleafodbc.*
+          retention-days: 30
+  
+  create-release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      
+      - name: Extract version from tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release v${{ steps.get_version.outputs.version }}
+          body: |
+            ## LeafODBC Driver v${{ steps.get_version.outputs.version }}
+            
+            ### Downloads
+            
+            - **Linux**: `leafodbc-linux.tar.gz` - Contains `libleafodbc.so`
+            - **macOS**: `leafodbc-macos.tar.gz` - Contains `libleafodbc.dylib`
+            
+            ### Installation
+            
+            1. Extract the archive for your platform
+            2. Copy the driver library to your desired location
+            3. Register the driver in `odbcinst.ini`:
+               ```ini
+               [LeafODBC]
+               Description=Leaf ODBC Driver for PointLake API
+               Driver=/path/to/libleafodbc.so
+               ```
+            4. Create a DSN in `odbc.ini` (see `examples/odbc.ini.example`)
+            
+            ### Documentation
+            
+            See the included `docs/` directory for detailed setup instructions:
+            - [ODBC Setup](docs/ODBC_SETUP.md)
+            - [QGIS Setup](docs/QGIS_SETUP.md)
+            
+            ### Changes
+            
+            See the [CHANGELOG](CHANGELOG.md) for details.
+          files: |
+            artifacts/leafodbc-linux/leafodbc-linux.tar.gz
+            artifacts/leafodbc-macos/leafodbc-macos.tar.gz
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

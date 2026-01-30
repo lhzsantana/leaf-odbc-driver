@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            unixodbc-dev \
+            libcurl4-openssl-dev \
+            cmake \
+            build-essential
+      
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install unixodbc curl cmake
+      
+      - name: Configure CMake
+        run: |
+          mkdir -p build
+          cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Debug
+      
+      - name: Build
+        run: |
+          cd build
+          make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
+      
+      - name: Verify build output
+        run: |
+          cd build/lib
+          ls -lh libleafodbc.*
+          file libleafodbc.*
+      
+      - name: Test library loading (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cd build/lib
+          ldd libleafodbc.so || echo "Static dependencies or not found"
+      
+      - name: Test library loading (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          cd build/lib
+          otool -L libleafodbc.dylib || echo "Dependencies check"
