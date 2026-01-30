@@ -414,6 +414,7 @@ Logs will appear in `stderr` and show:
 
 ## Documentation
 
+- **[QGIS Quick Start](docs/QGIS_QUICKSTART.md)** - Get started in 5 minutes ⚡
 - **[ODBC Setup Guide](docs/ODBC_SETUP.md)** - Detailed unixODBC configuration
 - **[QGIS Setup Guide](docs/QGIS_SETUP.md)** - Complete QGIS integration guide
 - **[Build Guide](BUILD.md)** - Compilation instructions
