@@ -26,7 +26,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - BUILD.md with compilation instructions
 - Example configuration files
 
-## [0.1.0] - YYYY-MM-DD
+## [0.1.0] - 2025-01-30
 
 ### Added
-- Initial release
+- Initial release of LeafODBC driver
+- ODBC driver implementation for Leaf PointLake API
+- Support for SELECT queries only (read-only)
+- Authentication via Leaf API
+- Metadata support (SQLTables, SQLColumns)
+- GEOMETRY_COLUMNS virtual table for GDAL/OGR
+- Connection string and DSN parsing
+- Result set handling with type inference
+- Support for macOS and Linux (unixODBC)
+- GitHub Actions for CI/CD and releases
+- Complete documentation (README, ODBC_SETUP, QGIS_SETUP, BUILD)
