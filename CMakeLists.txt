@@ -55,18 +55,34 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(json)
 
+# Get json include directory
+get_target_property(JSON_INCLUDE_DIR nlohmann_json::nlohmann_json INTERFACE_INCLUDE_DIRECTORIES)
+if(NOT JSON_INCLUDE_DIR)
+    # Fallback: use the source directory from FetchContent
+    get_property(JSON_SOURCE_DIR TARGET nlohmann_json::nlohmann_json PROPERTY SOURCE_DIR)
+    if(JSON_SOURCE_DIR)
+        set(JSON_INCLUDE_DIR "${JSON_SOURCE_DIR}/include")
+    else()
+        # Last resort: try to find it in the build directory
+        set(JSON_INCLUDE_DIR "${CMAKE_BINARY_DIR}/_deps/json-src/include")
+    endif()
+endif()
+
 # Shared library
 add_library(leafodbc SHARED ${SOURCES} ${HEADERS})
 target_link_libraries(leafodbc
     PRIVATE
     ${UNIXODBC_LIBRARIES}
     ${CURL_LIBRARIES}
+    nlohmann_json::nlohmann_json
 )
 
 target_include_directories(leafodbc
     PUBLIC
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
+    PRIVATE
+    ${JSON_INCLUDE_DIR}
 )
 
 # Platform-specific settings

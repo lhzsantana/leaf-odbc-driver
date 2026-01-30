@@ -1,6 +1,8 @@
 #include "leafodbc/handles.h"
 #include "leafodbc/common.h"
+#include "leafodbc/resultset.h"
 #include <algorithm>
+#include <cstring>
 
 namespace leafodbc {
 
@@ -111,7 +113,8 @@ SQLRETURN HandleRegistry::alloc_env(SQLHENV* env_handle) {
     
     std::lock_guard<std::mutex> lock(mutex_);
     auto handle = std::make_unique<EnvHandle>();
-    SQLHENV h = next_env_handle_++;
+    SQLHENV h = reinterpret_cast<SQLHENV>(reinterpret_cast<uintptr_t>(next_env_handle_) + 1);
+    next_env_handle_ = h;
     env_handles_[h] = std::move(handle);
     *env_handle = h;
     return SQL_SUCCESS;
@@ -128,7 +131,8 @@ SQLRETURN HandleRegistry::alloc_connect(SQLHENV env_handle, SQLHDBC* conn_handle
     }
     
     auto handle = std::make_unique<ConnHandle>();
-    SQLHDBC h = next_conn_handle_++;
+    SQLHDBC h = reinterpret_cast<SQLHDBC>(reinterpret_cast<uintptr_t>(next_conn_handle_) + 1);
+    next_conn_handle_ = h;
     conn_handles_[h] = std::move(handle);
     *conn_handle = h;
     return SQL_SUCCESS;
@@ -146,7 +150,8 @@ SQLRETURN HandleRegistry::alloc_stmt(SQLHDBC conn_handle, SQLHSTMT* stmt_handle)
     
     auto handle = std::make_unique<StmtHandle>();
     handle->conn_handle = conn_handle; // Store parent connection
-    SQLHSTMT h = next_stmt_handle_++;
+    SQLHSTMT h = reinterpret_cast<SQLHSTMT>(reinterpret_cast<uintptr_t>(next_stmt_handle_) + 1);
+    next_stmt_handle_ = h;
     stmt_handles_[h] = std::move(handle);
     *stmt_handle = h;
     return SQL_SUCCESS;

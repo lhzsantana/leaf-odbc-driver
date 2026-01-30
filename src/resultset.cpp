@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <cmath>
 #include <algorithm>
+#include <cstdint>
 
 namespace leafodbc {
 
