@@ -262,8 +262,7 @@ bool ResultSet::convert_value(const nlohmann::json& value, SQLSMALLINT target_ty
         }
         
         case SQL_C_LONG:
-        case SQL_C_SLONG:
-        case SQL_INTEGER: {
+        case SQL_C_SLONG: {
             int32_t int_val = 0;
             if (value.is_number_integer()) {
                 int_val = static_cast<int32_t>(value.get<int64_t>());
@@ -304,8 +303,7 @@ bool ResultSet::convert_value(const nlohmann::json& value, SQLSMALLINT target_ty
             return true;
         }
         
-        case SQL_C_DOUBLE:
-        case SQL_DOUBLE: {
+        case SQL_C_DOUBLE: {
             double double_val = 0.0;
             if (value.is_number()) {
                 double_val = value.get<double>();

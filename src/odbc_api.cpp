@@ -72,7 +72,9 @@ SQLRETURN SQLSetEnvAttr(SQLHENV environment_handle, SQLINTEGER attribute, SQLPOI
     
     switch (attribute) {
         case SQL_ATTR_ODBC_VERSION:
-            env->odbc_version = reinterpret_cast<SQLUINTEGER>(value_ptr);
+            if (value_ptr) {
+                env->odbc_version = *reinterpret_cast<SQLUINTEGER*>(value_ptr);
+            }
             return SQL_SUCCESS;
         
         default:
